@@ -1,0 +1,352 @@
+// {
+//   id: { columnIndex: 0, headerText: 'ID' },
+//   dateCreated: { columnIndex: 1, headerText: 'Date Created' },
+//   'date created': { columnIndex: 1, headerText: 'Date Created' },
+//   customerName: { columnIndex: 2, headerText: 'customer name' },
+//   'customer name': { columnIndex: 2, headerText: 'customer name' }
+
+import { Locator } from '@playwright/test';
+
+export type ColumnInfo = {
+  index: number;
+  text: string;
+};
+
+export type ColumnMap = Record<string, ColumnInfo>;
+
+export type TextMatcher = string | ((text: string) => boolean);
+
+function toCamelCase(text: string): string {
+  const words = text.toLowerCase().split(' ');
+
+  let result = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+
+    const chuHoa = word.charAt(0).toUpperCase() + word.slice(1);
+    result += chuHoa;
+  }
+  return result;
+}
+
+function cleanHeaderText(text: string): string {
+  const parts = text.split(' ');
+  const words = parts.filter((word) => word !== '');
+  return words.join(' ');
+}
+
+export async function createColumnMap(headers: Locator): Promise<ColumnMap> {
+  const count = await headers.count();
+  const map: ColumnMap = {};
+
+  for (let index = 0; index < count; index++) {
+    const headerLocator = headers.nth(index);
+    const rawText = await headerLocator.innerText();
+
+    const clean = cleanHeaderText(rawText);
+
+    const info: ColumnInfo = {
+      index,
+      text: clean,
+    };
+
+    const camelKey = toCamelCase(clean);
+
+    if (camelKey) {
+      map[camelKey] = info;
+    }
+
+    const lowerKey = clean.toLowerCase();
+    if (lowerKey) {
+      map[lowerKey] = info;
+    }
+  }
+  return map;
+}
+export async function getColumnInfoSimple(
+  headersLocator: Locator,
+  columnKey: string,
+  coloumnMapCache?: ColumnMap | null
+): Promise<{ info: ColumnInfo; columnMap: ColumnMap }> {
+  //B1: Thử dùng cache nếu có
+  let map: ColumnMap | null = coloumnMapCache || null;
+  if (!map) {
+    map = await createColumnMap(headersLocator);
+  }
+  //B2: Tìm column trong map
+  let info = map[columnKey];
+
+  //B3: Nếu ko tìm thấy. tạo lại map từ DOM
+  // retry strategy
+  if (!info) {
+    map = await createColumnMap(headersLocator);
+    info = map[columnKey];
+  }
+  if (!info) {
+    throw new Error(`Column ${columnKey} không tìm thấy`);
+  }
+  return { info, columnMap: map };
+}
+
+export type ColumnTextCleaner = (cell: Locator) => Promise<string>;
+
+export async function getCellTextSimple(
+  cell: Locator,
+  columnKey: string,
+  columnCleaner?: Record<string, ColumnTextCleaner>
+): Promise<string> {
+  ///B1: Kiểm tra xem custom cleaner cho column key có hay ko
+
+  const cleaner = columnCleaner?.[columnKey];
+  if (cleaner) {
+    return cleaner(cell);
+  }
+  const text = await cell.textContent();
+  return (text || '').trim();
+}
+
+export async function getColumnValuesSimple(
+  headersLocator: Locator,
+  rowsLocator: Locator,
+  columnKey: string,
+  columnCleaner?: Record<string, ColumnTextCleaner>,
+  coloumnMapCache?: ColumnMap | null
+): Promise<string[]> {
+  const result = await getColumnInfoSimple(headersLocator, columnKey, coloumnMapCache);
+  const count = await rowsLocator.count();
+
+  const values: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const cell = rowsLocator.nth(i).locator(`td:nth-child(${result.info.index + 1})`);
+    values.push(await getCellTextSimple(cell, columnKey, columnCleaner));
+  }
+  return values;
+}
+
+//hàm xây dựng object chứa dữ liệu của 1 row
+//mục đích:
+// lấy text từ nhiều cells trong 1 row
+// trả về object với key = coloumnKey, value = text từ cell
+// logic:
+// 1. loop qua từng column key (từng cột)
+//2. tìm ví trị cột (index) từ column map
+//3. lấy cell ở vị trí đó trong row
+//4. lấy text từ cell
+//5. lưu vào rowData object
+
+export async function buildRowDataSimple(
+  headersLocator: Locator,
+  rowsLocator: Locator,
+  columnKeys: string[],
+  columnCleaner?: Record<string, ColumnTextCleaner>,
+  coloumnMapCache?: ColumnMap | null
+): Promise<{ rowData: Record<string, string>; columnMap: ColumnMap }> {
+  //khởi tạo object rỗng để lưu dữ liệu của row
+  const rowData: Record<string, string> = {};
+  let currentColumnMap = coloumnMapCache;
+  for (const key of columnKeys) {
+    //b1. lấy thông tin cột index...
+    const result = await getColumnInfoSimple(headersLocator, key, coloumnMapCache);
+
+    currentColumnMap = result.columnMap;
+    //b2. tạo locator cho cell
+    const cell = rowsLocator.locator(`td:nth-child(${result.info.index + 1})`);
+
+    //b3. luu vao rowdata va column map moi nha
+    rowData[key] = await getCellTextSimple(cell, key, columnCleaner);
+  }
+  return { rowData, columnMap: currentColumnMap! };
+}
+
+//lấy dữ liệu toàn bộ table
+//logic:
+// đếm só lượng rows
+// loop qua từng row'
+// với 1 row lấy dữ liệu từ các cột chỉ định
+// push vào mảg kq
+
+//
+export async function getTableDataSimple(
+  headersLocator: Locator,
+  rowsLocator: Locator,
+  columnKeys: string[],
+  columnCleaner?: Record<string, ColumnTextCleaner>,
+  coloumnMapCache?: ColumnMap | null
+): Promise<Array<Record<string, string>>> {
+  const rowCount = await rowsLocator.count();
+
+  const data: Array<Record<string, string>> = [];
+
+  let currentColumnMap = coloumnMapCache;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    const row = rowsLocator.nth(rowIndex);
+
+    const result = await buildRowDataSimple(
+      headersLocator,
+      row,
+      columnKeys,
+      columnCleaner,
+      currentColumnMap
+    );
+
+    currentColumnMap = result.columnMap;
+
+    data.push(result.rowData);
+  }
+  return data;
+}
+
+const textMatches = (cellValue: string, condition: TextMatcher): boolean => {
+  //nếu truyền 1 vào chuỗi apple
+  if (typeof condition === 'string') {
+    return cellValue.includes(condition);
+  }
+  if (typeof condition === 'function') {
+    return condition(cellValue);
+  }
+  return false;
+};
+
+// //logic
+// 1. lấy vị trí cột
+// 2. đếm số lượng rows
+// 3. loop qua từng rows
+// 4. lấy text từ cell ở cột đó
+// 5. kiểm tra text có khớp với macher ko
+// 6. nếu khớp trả về row
+// 7. nếu ko khoipws throw error
+
+export async function findRowByColumnValueSimple(
+  headersLocator: Locator,
+  rowsLocator: Locator,
+  columnKey: string,
+  matcher: TextMatcher,
+  columnCleaner?: Record<string, ColumnTextCleaner>,
+  coloumnMapCache?: ColumnMap | null
+): Promise<Locator> {
+  const result = await getColumnInfoSimple(headersLocator, columnKey, coloumnMapCache);
+  const count = await rowsLocator.count();
+
+  for (let i = 0; i < count; i++) {
+    const row = rowsLocator.nth(i);
+    const cell = row.locator(`td:nth-child(${result.info.index + 1})`);
+    const text = await getCellTextSimple(cell, columnKey, columnCleaner);
+    if (textMatches(text, matcher)) {
+      return row;
+    }
+  }
+  throw new Error(`Unable to find a row where ${columnKey} matches provided matcher`);
+}
+
+//B1
+export async function findRowByFilterSimple(
+  headersLocator: Locator,
+  rowsLocator: Locator,
+  filters: Record<string, TextMatcher>,
+  columnCleaner?: Record<string, ColumnTextCleaner>,
+  coloumnMapCache?: ColumnMap | null
+): Promise<Locator> {
+  const keys = Object.keys(filters);
+
+  const count = await rowsLocator.count();
+
+  let currentColumnMap = coloumnMapCache;
+
+  //tối ưuL là lấy index trước, tránh phải tìm lại nhiều lần
+  const columnInfos: ColumnInfo[] = [];
+
+  for (const key of keys) {
+    const result = await getColumnInfoSimple(headersLocator, key, currentColumnMap);
+    currentColumnMap = result.columnMap;
+
+    columnInfos.push(result.info);
+  }
+
+  ///loop qua tung row de tim row khop voi tat ca filter
+  for (let i = 0; i < count; i++) {
+    const row = rowsLocator.nth(i);
+
+    let matchedAll = true;
+    for (let j = 0; j < keys.length; j++) {
+      // lấy key và column info tương ứng
+      const key = keys[j]; // vi du 'company'
+      const info = columnInfos[j]; // {index: 2, text: 'company'}
+
+      const cell = row.locator(`td:nth-child(${info.index + 1})`);
+      const text = await getCellTextSimple(cell, key, columnCleaner);
+
+      if (!textMatches(text, filters[key])) {
+        matchedAll = false;
+        break;
+      }
+      // neu khop thi kiem tra filter tiep theo
+    }
+    if (matchedAll) {
+      return row;
+    }
+  }
+  throw new Error('Unable to find row matchign filter');
+}
+const resolveColumnKeysForRowData = (
+  filters: Record<string, TextMatcher>,
+  columnKeys?: string[],
+  defaultColumnKeys?: string[]
+): string[] => {
+  // Priority 1: Nếu có columnKeys và không rỗng → dùng columnKeys
+  if (columnKeys && columnKeys.length > 0) {
+    return columnKeys;
+  }
+
+  // Priority 2: Nếu không → kiểm tra defaultColumnKeys
+  if (defaultColumnKeys && defaultColumnKeys.length > 0) {
+    return defaultColumnKeys;
+  }
+
+  // Priority 3: Nếu không → dùng keys từ filters
+  const keys = Object.keys(filters);
+
+  // Validation: Phải có ít nhất 1 key
+  if (keys.length === 0) {
+    throw new Error('No column keys provided for row data extraction.');
+  }
+
+  return keys;
+};
+export async function getRowDataByFiltersSimple(
+  headersLocator: Locator,
+  rowsLocator: Locator,
+  filters: Record<string, TextMatcher>,
+  columnKeys?: string[],
+  defaultColumnKeys?: string[],
+  columnCleaners?: Record<string, ColumnTextCleaner>,
+  columnMapCache?: ColumnMap | null
+): Promise<Record<string, string>> {
+  // Bước 1: Tìm row khớp với filters
+  // findRowByFiltersSimple sẽ tìm row đầu tiên khớp với tất cả filters
+  const row = await findRowByFilterSimple(
+    headersLocator,
+    rowsLocator,
+    filters,
+    columnCleaners,
+    columnMapCache
+  );
+
+  // Bước 2: Xác định columnKeys để lấy dữ liệu
+  // resolveColumnKeysForRowData sẽ quyết định dùng columnKeys nào
+  // Priority: columnKeys > defaultColumnKeys > keys từ filters
+  const resolvedKeys = resolveColumnKeysForRowData(filters, columnKeys, defaultColumnKeys);
+
+  // Bước 3: Lấy dữ liệu từ row
+  // buildRowDataSimple sẽ lấy text từ các cells tương ứng với resolvedKeys
+  const result = await buildRowDataSimple(
+    headersLocator,
+    row,
+    resolvedKeys,
+    columnCleaners,
+    columnMapCache
+  );
+
+  // Trả về rowData (object chứa dữ liệu)
+  return result.rowData;
+}

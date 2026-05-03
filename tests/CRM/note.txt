@@ -1,0 +1,1023 @@
+thằng POM
+sẽ đảm bảo cái việc là tách biệt trách nhiệm - > trách nhiệm đơn lẻ 
+- phân chia thành 2 thành phần chính
+1. kịch bản test(test script):  đại diện cho business logic
+2. đối tượng trang(page object): đại diện cho technical implenmentation -> tương tác với UI như thế nào
+-> chia thành các class -> mỗi 1 class địa diện cho 1 trang 
+
+--> giải quyết đc 3 cái thách thức lớn nhất trong auto
+1. tính dễ bảo trì: 
+- nó sẽ tập trung tất cả các selector và phương thức của trang custom  bao gồm ví dụ là: company locator
+2. Tính tái sử dụng:
+- tạo ra các phương thức (actions) địa diện cho hành vi nghiệp vụ (business behavior )
+- > ví dụ tao có loginPage.login('user', 'password')
+3. Tính dễ đọc ; 
+
+Để giải quyết vấn đề DRY (don't repeat yourself) => base page( trang cơ sở) 
+basepage -> là 1 lớp cha trừu tượng mà tất cả các page object khác (loginpage), sẽ kế thừa
+=> đóng vai trò như 1 hd giao diện chung. định nghĩa tập hợp các yếu tố và hành động
+mà mọi trang trong ứng dụng dều phải có quyền truy cập
+
+ví dụ: hệ thống nhân viên và công cụ chung
+-> mọi nhân viên đều cần sử dụng chung 1 số công cụ của công ty , ví dụ như là email service
+
+
+
+
+
+// cấu trúc file hệ thống sẽ xây dựng cho bộ fixture của chúng ta
+
+/// chia nhỏ trách nhiệm ra 3 file chính 
+//1. File auth.fixture.ts (tầng 1 và tầng2): chứa logic login và tạo ra "người gác cổng)
+//2. File app.fixture.ts (tầng 3): chứa công thưucs tạo ra các POM (dashboard, customer)
+//3. Fiel gatekeeper.fixture.ts (tổng hành dinh): nơi hợp nhất tất cả lại để sử dụng
+
+cấu trúc chuẩn cho 2 môi trường (dev và stagging)
+.env (1. cấu hình chung - ai cũng giống nhau)
+.env.development (2. cấu hình riêng cho DEV)
+.env.development.local(3. bí mật: chỉ máy bạn có - ko up lên git)
+.env.staging(4. cấu hình cho môi trường stagging)
+
+.. vị trí ở root (thư mục gốc ) ngang hàng với package.json
+
+
+
+thứ tự ưu tiên là
+// biến phục thuộc là NODE_ENV=abc
+.env.[NODE_ENV].local hoặc .env[NODE_ENV]
+
+1. .env (độ ưu tiên thấp nhất)
+2. .env.development (trung bình)
+3. .env.development.local(cao nhất ở môi trường dev)
+4. .env.staging (cao nhất ở môi trường stagging)
+
+//nguyên tắc -> cái load sẽ ghi đè cái load trước
+trên phiếu NODE_ENV ghi development -> thủ thư sẽ tìm tất cả môi trường có tên .env.development
+
+trường hợp mà NODE_ENV ghi staging -> thủ thư sẽ tìm cả môi trường có tên .env.staging
+
+để lấy thông tin biến mt ta dùng process.env.key mà ta mong muống
+process.env.BASE_URL -> https://dev.crm.anhtester.com
+
+ ////
+ Dotenv flow hay dotenv hoạt động dựa trên process.cwd() (current working directory - thư mục hiện tại
+ 
+ dang gõ lệnh)
+
+trên windows -> terminal là powershell
+
+trên gitbash/mac/linux/ -> mặc định
+
+WINDOW
+$env:NODE_ENV="staging";  npx playwright test ./tests/env-demo.spec.ts
+
+mac
+NODE_ENV=staging npx playwright test ./tests/env-demo.spec.ts
+
+as (alias) 
+ "test:dev": "cross-env NODE_ENV=development npx playwright test", -> shorcut -(alias)
+    "test:uat": "cross-env NODE_ENV=staging npx playwright test"
+
+    -> cross-env NODE_ENV=development npx playwright test ./tests/env-demo.spec.ts
+
+    npm run test:dev ./tests/env-demo.spec.ts
+
+
+
+
+    //hooks (life cycle)
+
+tứ trụ hooks (life cycle)
+
+
+
+beforeAll (worker) ---> 1 lần duy nhất /file
+
+beforeEach(test) chạy lặp lại mỗi lần trước MỖI test
+
+afterEach(test) . chạy lặp lại mỗi lần sau MỖI test
+
+afterAll(worker) -> 1 lần duy nhất sau khi chạy hết test
+
+woker reuse
+
+// 4 woker - 100 bài test
+
+
+1. woker 1 chạy before all (mở page)
+2. worker 1 chạy Test A(login -> chjuyeern sang dashboard)
+
+
+
+// playwright thực hiện 2 bước
+b1. là khoanh vùng (scoping) = dựng hào rào nơi folder test chúng ta sẽ thực hiện thong qua testDIr
+b2. lập danh sách ứng viên () -> quét hết để lấy fiel theo testMatch
+so với ví dụ checkout.txt -> () đã bị bỏ đi vì ko hoipwj lệ
+-> ket qua la pw tao dc 1 danh sach noi bo gom nhugn file hop le
+
+khi đó chúng ta gõ
+npx playwright test checkout ->
+checkout.spec.ts  
+tests/CRM/checkout.spec.ts 
+so với tests/checkout.spec.ts -> khớp (có chứa chữ checkout)
+/// tests/logintest.spec.ts ->ko khớp -. ko chạy
+
+//cú pháp glob (ko phải regex)
+
+** -> recursive wildcard -> bất kì thư mục nào sâu bao nhiêu cũng được
+
+* -> bất kì tên gì 
+.spec.ts -> extenion đuôi cố định
+**/*.spec.ts => 
+
+projects
+Mục đích 1: tối ưu hóa tài nguyên 
+.. vấn dề 100 TCs APi và 100 TCs UI
+mục đíhc 2: ma trận kiểm thử
+(test matrix)
+
+mục đích 3: Điều phối luồng chạy *orchestration
+có thể có cấu hình Setup trạng thái đăng nhập -> chạy test -> tear down
+thiết lập sự phụ thuộc vàoi giữa các file test
+
+
+Đặc tính của project -> kế thừa và ghji đè
+
+///1 Ưu tiên 1: câuis hình trong từng fiel test 
+
+//ưu tiên 2: cấu hình trong trong project
+
+//ưu tiên 3" cấu hình trong global
+
+
+cái riêng PROJECT CONFIG SẼ GHI ĐÈ CÁI CHUNG TOP LEVEL CONFIG ->
+
+
+global config ()
+
+
+-- chay project them arugment 
+
+--project=name
+
+
+
+
+
+
+                chrome  firefox iphone12
+
+    headless    Y           Y       Y    
+    slow:       N           Y       N
+    Video:       Y          N       N   
+
+
+
+- Quy trình sàng lọc nhiều project
+=> lớp 1 quét từ testDir
+nhiệm vụ là tìm tất cả file có thể test dựa vào testDir
+lúc này chưa quan tâm tới project nào cả
+
+lớp 2 ghép cặp dự án
+
+== đem từng file ở lớp 1 - .ướp vàop từng project
+- logic
+- ->  
+
+
+kết quả của lớp 2 (danh sách công việc tiềm năng)
+npx playwright test[]
+1. Job A. spec.ts chạy trên project API (api.spec1.ts)
+2. Job B chạy trên desktop (cart.spec1.ts)
+3. Job C chạy trên desktop (login.spec1.ts)
+4. Job D chạy trên mobile (cart.spec1.ts)
+5. Job E. chạy trên mobile (login.spec1.ts)
+
+
+
+lớp 3 bộ lọc CLI (user filter) -> lọc lại danh sách 5 jobs trên dựa ctreen những gì đã gõ
+npx playwright test (filter)
+
+1. là filter theo tên file test login
+
+dấu "/" biểu thị cho folder
+2. tìm theo folder
+npx playwright test ui/
+3. tìm theo project
+ --project 
+npx playwright test login --project=mobile-ios           
+npx playwright test cart --project=mobile-ios           
+PW taoh ra cac JOB dua tren FIle + project
+
+
+GLOBAL Setup (sáng sớm): làm duy nhất 1 lần
+Tests(trong ngày): 
+GLOBAL TEARDOWN(đêm muộn): làm duy nhát 1 lần
+
+
+//cơ chế storageState -> lưu đc trạng thái đăng nhập của tài khoản và dùng cho các test case tiếp theo
+
+
+// có 2 cơ chế đăng nhập
+1.. cookie -based (sesion)
+stateful -> server phải lưu thông tin sessionID trong rAm/db => 1 phiên đăng nhập của người dùng
+browser tự động lưu vào cookie 
+sau đó browser tựk động gửi kèm mỗi request -
+
+2... token -based(jwt) ->  
+stateless -> server ko lưu trữu gì cả, thông tin nằm hết ở trong token
+-client (Fe) sẽ có clogic để lưu vào local storage (hoặc cookie)
+- client phải tự code để gắn vào header (FE) => mỗi 1 request phải có Authorization: Bearer........
+
+
+
+
+
+B1. Gõ npx playwright test///
+B2. tổng hợp. đọc config. đock file test  (parsed file test)
+B3. phân công : goi worker (nhân viên làm việc hay là os process.) 
+B4. Tạo hồ sơ >: Runner tạo ra 1 cái object gọi testInfo. điền hết thông tin
+title:
+projecte:
+worker.
+retry....
+B5; Injection -> cho vào tham số thứ 2 của hàm test({page, fitureA, fixtureB}, testInfo)
+
+Nhóm chức năng: lấy thông tin (Read only)
+title -> tên bài test
+project.name tên project
+file _. đường dẫn file test
+retry số lần chạy lại 
+status -> trạng thái của fiel test thường dùng ở after each
+duration -> thời gian chạy -> cũng thường dùng ở aftger each
+
+Nhóm chức năng : điều khiền luồng ()
+- testInfo.skip(); bỏ qua file test
+test.skip()
+- testInfo.setTimeout()
+-testInfio.fail()
+
+Nhóm chức năng L: báo cáo
+testInfo.attach()
+testInfo.annnotations (note)
+
+lấy lúc chạy file test (runTime) -> lấy được status. duration 
+
+phạm vi
+
+-... sẽ tầng global 
+--.. tầng group (describe)
+--.tầng function 
+
+quy tắc ghi đè khi sử dụng test và testInfo ở nhóm chức năng điều khiền luồng
+
+-> CÀNG VÀO SÂU (SCOPE HẸP HƠN) thì càng có quyền lực cao hơn
+
+
+TAGS #
+
+
+để chạy ta sẽ dùng --grep "@tag"
+-g "@tag"
+--grep-invert "@tag" -> chạy bài test bỏ qua thằng @tag
+
+suwr dunjg hoặc LOGIC OR
+-> sử dùng syntax | 
+
+Có 3 giai đoạn khi mà chúng ta gõ npx playwrigh test ...
+-GD1: MAIN PROCESS (QUÉT FILE)
+- đăng kí các file test (ghi danh )
+- ở đây main procews sko chạy hàm async ({page})
+-. sau khi đọc hết xong -> có 1 danh sách tổng -> ghi lại là trong này có 1 bài test tên là TEST A.. -> dòng số 10.. thuộc scenario....
+- tiếp điện phụ thuộc vào filter mà chúng ta đưa cho --grep (tag), tên file...folder..
+-. nó sẽ tính toán cần boa nhiêu worker (cái này phụ thuộc vào setup cuar người dùng hoặc default tgwj tính toán)
+- nó chia việc
+--
+GD2/ Thằng WOKER làm việc
+Mian process ko gửi code mà gửi mệnh lệnh qua kệnh IPC (inter process communication)
+
+GD3// worker process - người thợ ------
+khởi động, nó như 1 tờ giấy trắng nó nhận lệnh và bát dầu làm việc
++. Load lại file (re-evaluation)
++ và check lại với file test mệnh lệnh từ main process -> nếu đúng nhảy vào cái ruột body
++ nếu sai skip luôn
+
+tổng đài taxi
+:: main process: tổng đài viên
+::worker process: tà xế taxi
+"file test: tấm bản đồ thành phố
+
+
+-Data - driven
+có 1 bộ data -> mình sẽ chạy hết các info trong bộ data đố với 1 tcs
+- giá trị biên, min, max length.... mỗi 1 case này -> sẽ có 1 bộ dữ liệu
+- thì bây giờ nếu viết file test thì thông thường ta sẽ phải viết bằng ấy file test tương ứng với 
+n số dữ liệu
+- dùng 1 bộ test -> sử dụng vòng lặp chạy qua các dữ liệu và chạy vào file test
+
+
+NGUYÊN TẮC VÀNG:
+dữ liệu dùng để sinh TEST  (parameter) phải là dữ liệu tĩnh (STATIC), hoặc đồng bộ tại thời điểm chạy lệnh
+
+- CHạy parallel (song song). sẽ giúp tốc độ nahnh gấp N lần (N = số lượng worker/cpu của máy)
+
++ Hệ thống nahf hàng
+Main process: QUản lý nhà hàng
+Woker process: là đầu bếp
+File test(.spec.ts): ;à sách công thức
+
+
+1. Quy tắc sắp xếp file (thực đơn từ A-Z)
+vó duk file nào có bắt đầu bằng chữ A sẽ sắp trên cùng ưu tiên nhất -> Z
+theo thứ tự alphabet
+ví dụ ở hệ thống nhà hàng có 3 file
+01_A.spec.ts (món khai vị) - xếp đầu tiên
+02_B.Spec.ts (món bò) - xếp thứ 2
+03_C.spec.ts (mó bánh) - xếp cuối cùng
+
+2. Cơ chế phân chia worker (AI NHANH HƯỞNG NHIỀU)
+
+ví dụ ta có 2 đầu bếp worker1 và worker 2
+- Cảnh 1 : phân chia ban đầu
+-> 2 đầu bếp tới bảng công việc 
+- wokker1 nhanh tay -> món khai vị
+- woker 2 -> giật từ món bò
+
+cảnh 2: chênh lệnh tốc độ
+- Đầu bếp 1: woker 1 thấy món khai vị làm rất nhanh -> vèo cái làm xong 2phust
+woker 2. làm món bò lâu hơn mât 5p
+
+Cảnh 3 quay lại hàng chờ (queue)
+
+- worker 1 lấy món bánh để làm
+
+=> cuối cùng
+worker 1: món 1 + 3
+worker 2: món 2 
+
+
+01_fast.spec.ts
+02_slow.Spec.ts 
+03_fast.spec.ts 
+04_fast.spec.ts
+2 worker 
+🚀 [Worker 2] BẮT ĐẦU: 02_slow.spec.ts
+[chromium] › tests\lessons\parallel\01_fast.spec.ts:3:1 › Test 01 (Nhanh)
+🚀 [Worker 1] BẮT ĐẦU: 01_fast.spec.ts
+✅ [Worker 1] KẾT THÚC: 01_fast.spec.ts
+[chromium] › tests\lessons\parallel\03_fast.spec.ts:3:1 › Test 03 (Nhanh)
+🚀 [Worker 1] BẮT ĐẦU: 03_fast.spec.ts
+✅ [Worker 1] KẾT THÚC: 03_slow.spec.ts
+[chromium] › tests\lessons\parallel\04_fast.spec.ts:3:1 › Test 04 (Nhanh)
+🚀 [Worker 1] BẮT ĐẦU: 04_fast.spec.ts
+✅ [Worker 1] KẾT THÚC: 04_slow.spec.ts
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:3:1 › Test 02 (Siêu chậm)
+✅ [Worker 2] KẾT THÚC: 02_slow.spec.ts
+
+
+
+
+có 2 cấp độ 1 là cấpp độ file test
+2 alf cấp độ test case ở trong file test
+
+
+A
+B
+C
+D
+E
+
+
+🔵 [Worker 2] ▶️ Bắt đầu làm Món B
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:4:3 › Bộ Test Nặng Ký (5 món) › Món A
+🔴 [Worker 1] ▶️ Bắt đầu làm Món A
+🔴 [Worker 1] ✅ Xong Món A
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:10:3 › Bộ Test Nặng Ký (5 món) › Món B
+🔵 [Worker 2] ✅ Xong Món B
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:16:3 › Bộ Test Nặng Ký (5 món) › Món C
+🟢 [Worker 2] ▶️ Bắt đầu làm Món C
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:22:3 › Bộ Test Nặng Ký (5 món) › Món D
+🟠 [Worker 1] ▶️ Bắt đầu làm Món D
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:16:3 › Bộ Test Nặng Ký (5 món) › Món C
+🟢 [Worker 2] ✅ Xong Món C
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:22:3 › Bộ Test Nặng Ký (5 món) › Món D                                                                                     
+🟠 [Worker 1] ✅ Xong Món D
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:28:3 › Bộ Test Nặng Ký (5 món) › Món E                                                                                     
+🟣 [Worker 1] ▶️ Bắt đầu làm Món E
+🟣 [Worker 1] ✅ Xong Món E
+
+01_fast.spec.ts
+02_slow.spec.ts - Món A
+02_slow.spec.ts - Món B
+02_slow.spec.ts - Món C
+02_slow.spec.ts - Món D
+02_slow.spec.ts - Món E
+03_fast.spec.ts 
+04_fast.spec.ts
+
+
+
+🔴 [Worker 2] ▶️ Bắt đầu làm Món A
+[chromium] › tests\lessons\parallel\01_fast.spec.ts:3:1 › Test 01 (Nhanh)
+🚀 [Worker 1] BẮT ĐẦU: 01_fast.spec.ts
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:4:3 › Bộ Test Nặng Ký (5 món) › Món A
+🔴 [Worker 2] ✅ Xong Món A
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:10:3 › Bộ Test Nặng Ký (5 món) › Món B
+🔵 [Worker 2] ▶️ Bắt đầu làm Món B
+[chromium] › tests\lessons\parallel\01_fast.spec.ts:3:1 › Test 01 (Nhanh)
+✅ [Worker 1] KẾT THÚC: 01_fast.spec.ts
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:16:3 › Bộ Test Nặng Ký (5 món) › Món C
+🟢 [Worker 1] ▶️ Bắt đầu làm Món C
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:10:3 › Bộ Test Nặng Ký (5 món) › Món B
+🔵 [Worker 2] ✅ Xong Món B
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:22:3 › Bộ Test Nặng Ký (5 món) › Món D                                                                                     
+🟠 [Worker 2] ▶️ Bắt đầu làm Món D
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:16:3 › Bộ Test Nặng Ký (5 món) › Món C
+🟢 [Worker 1] ✅ Xong Món C
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:28:3 › Bộ Test Nặng Ký (5 món) › Món E                                                                                     
+🟣 [Worker 1] ▶️ Bắt đầu làm Món E
+🟣 [Worker 1] ✅ Xong Món E
+[chromium] › tests\lessons\parallel\02_slow.spec.ts:22:3 › Bộ Test Nặng Ký (5 món) › Món D                                                                                     
+🟠 [Worker 2] ✅ Xong Món D
+[chromium] › tests\lessons\parallel\03_fast.spec.ts:3:1 › Test 03 (Nhanh)
+🚀 [Worker 1] BẮT ĐẦU: 03_fast.spec.ts
+[chromium] › tests\lessons\parallel\04_fast.spec.ts:3:1 › Test 04 (Nhanh)                                                                                                      
+🚀 [Worker 2] BẮT ĐẦU: 04_fast.spec.ts
+[chromium] › tests\lessons\parallel\03_fast.spec.ts:3:1 › Test 03 (Nhanh)
+✅ [Worker 1] KẾT THÚC: 03_slow.spec.ts
+[chromium] › tests\lessons\parallel\04_fast.spec.ts:3:1 › Test 04 (Nhanh)                                                                                                      
+✅ [Worker 2] KẾT THÚC: 04_slow.spec.ts
+
+
+//TRACE VIEW
+
+là tập hợp các SNAPSHOT DOM 
+
+Flaky Test  -> Test chập chờn
+
+
+khi mà deploy code lên PROD => ở 1 số cty hiện đại và có quy trình chuẩn -> trigger Automation test (pipeline)
+với bộ TCs regression test liên quan tới CR golive đó. -> nếu mà chạy regress fail -> deploy bị block và ko đc chạy nữa
+-> đọi BE/FE phải chờ ngồi chạy lại 10 -15p quá trời deploy lại. 
+
+
+cơ chế "Tự chữa lành" tạm thời để hệ thống vận hành trơn tru
+
+
+ALure Report
+
+import type {
+  FullConfig, FullResult, Reporter, Suite, TestCase, TestResult
+} from '@playwright/test/reporter';
+
+class MyReporter implements Reporter {
+    ///Playwright test bawtsa dadafu chạy  khởi tạo biến đếm (pass =0, fail =0) (before all)
+  onBegin(config: FullConfig, suite: Suite) {
+    console.log(`Starting the run with ${suite.allTests().length} tests`);
+  }
+
+  //Bắt đầu 1 file test  (before each)
+  onTestBegin(test: TestCase, result: TestResult) {
+    console.log(`Starting test ${test.title}`);
+  }
+
+
+    //afterEach (chạy sau khi file test kết thúc) (nếu test fail => gửi noti qua Msteam......)
+  onTestEnd(test: TestCase, result: TestResult) {
+    console.log(`Finished test ${test.title}: ${result.status}`);
+  }
+
+  // afterALl (chạy hết bài test)=> tính tổng bn test case pass fai. gửi báo ccáo. slack/email
+  onEnd(result: FullResult) {
+    console.log(`Finished the run: ${result.status}`);
+  }
+}
+
+export default MyReporter;
+
+
+ALLURE REPORT  -> có thể lưu history rất nhiều lần chạy
+
+npx playwright test trace --config playwright.lessons.config.ts 
+
+./scripts/allure-history.sh 
+powershell -ExecutionPolicy Bypass -File ./scripts/allure-history.ps1
+
+allure open ./allure-report
+
+
+
+API = Application Programming Interface
+Application: là giống các phần mềm Facebook. zép lào, 
+programming: alf cách chúng đc viết ra bằng code
+interface -> nó là nơi gặp gỡ, cầu nói để 2 thằng xa lạ nói chuyện được với nhau
+
+
+Bạn (FE): ngồi ở bàn ăn.. Mình muốn ăn bánh mì pate
+
+Nhà bếp: (BE): là nơi chứa thị bò, gia vvị. đầu bếp
+
+Vấn đề: cần 1 thằng bồi bàn API
+
+Bồi bàn (API) sẽ làm các việc
++B1 ( Request):: Đưau thực đơn cho bồi bàn (cho tôi 1 bánh mì pate kèm dưa chuột)
++B2 Process: bồi bàn mang tờ giấy đó dưua cho đầu bếp
++B3 Response : bếp nấu xong., bồi bàn đưa đĩa chứa bánh mì pate cho bạn 
+
+
+Hiện nay có những công nghệ nào để thằng API trổ tài, 
+
+1. Là Restful API: thay thế (SOAP API)
+Ví dụ: Mình đang đứng trước 1 cái máy bán nước tự động (BE)
+-. Trên máy có các nút A(coca), B)(pepsi) => đây là chính là endpoint (/coca, /pepsi)
+-> ví dụ muốn uống coca -> ấn nút A -> máy nhả ra 1 lon coca
+=> vấn đề với chuẩn resful API:
+= Thừa mức: nhả ra lon 330ml => uống có 1 ngụm ném đi -> phí phạm (tốn băng thông)
+- mất công: coca + bimbim => nhấn 2 lần . 1 lần là A -> 1 lần C (bimbim) -=> thao tác 2 lần gửi 2 request
+
+2. Do phở bò phát triển -> GraphQL 
+Bối cảnh: Mình vào 1 quán bar xịn xò, gặp anh bartender (BE)
+- Cách hoạt động:
+- Bartender ko đưa menu cố định., => đưa cho 1 tờ giấy trắng và 1 cái bút
+-> mình viết yêu cầuL cho 1 ly cocktail: 30% rượu rum, 50% nc cam, 2 lát chanh, KO đường
+
+-> Bartender pha chế y hệt công thức đó và đưua cho 1 ly duy nhất
+Ưu điểm: 
+Chính xác: -> yêu cầu gì đc nấy. ko thừa đường, thiếu chanh
+-. tiện lợi,. nếu thêm 1 địa lạc, -=> thêm vào tờ giấy -=> anh bartender sẽ mang ra Trong 1 request
+
+
+3. Websocket: 
+- Bối cảnh: ví dụ cần bơm đầy bể bơi
+-= cách hoạt động: ko dùng thau chậu -> nối 1 cái ống dẫn nước (socket connection) tahwngr từ nhà máy nc 
+vào cái bể -> nc chảy liên tục (data stream) -<> hễ nhà máy bơm nc thì cái bể nhận đc ngay nước tức thì
+ứng dụng: coin, chứng, giá vàng.
+độ trễ thấp
+
+playwright cơ chế của nó là websocket -> giao tiếp trực tiếp với browser
+
+mỗi cty có 1 ông SA 
+
+
+
+tiếp theo
+thì để 2 thằng giao tiếp với nhau qua cây cầu API thì phải có ngôn ngữ chung 
+
+ví dụ FE( là người việt nam) (code bằng type script)
+BE là người Mỹ tho (code = Java/python)
+
+thì để dùng API nói chuyện với 2 ông này thì cần 1 ngôn ngữ chung -. JSON (javascript object notation)
+
+cấu trúc JSON rất đơn giản y xì object của typescript
+
+{
+  "ten": "teo",
+  "tuoi": 25
+}
+
+
+
+AUTHENTICATION VÀ AUTHORIZATION  và cơ chế JWT
+
+authen: xác thực bạn là ai (401)
+
+author: bạn được làm gì? (403)
+
+route 
+/admin/dashboard 
+/guest/dashboad
+
+JWT (JSON WEB TOKEN)
+
+session-based (statefull)
+
+JWT - stateless 
+
+encode: mã hóa 
+decode: giải mã hóa chữ kí là khớp với chữ kí mình kí với thằng user trước đó -> ok pass mày đc authen 
+CẤU TRÚC jwt
+AA.BB.CC
+3 PHẦN
+PHẦN 1. header AA 
+chứa htoong tin về thuật toán mã hóa
+phần 2. BB. *payload - chứa dữ liệu mà server muốn gửi gắm. thường là thông tin user
+{
+
+  "role": "guest"
+
+}
+mã hóa ở base 64(ao cũng dịch ngược)
+phần 3. chữ kí bảo mật 
+đây là phần đảm bảo tính toàn vẹn . server sẽ tạo ra chữ kí bằng công thức
+Sign = Hash(HEADER + PAYLOAD + SecretKey)
+
+ví dụ như hacker cố sửa payload 
+{
+  "role" "admin"
+}
+=> sign -> gửi lên server . server decode lại cái chữ kí đấy và check với secretKey => từ chối (reject)
+
+{
+  "username": "test1",
+  "email": "test1@example.com",
+  "password": "123456789"
+}
+
+//đăng kí thành công
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3QxQGV4YW1wbGUuY29tIiwiZXhwIjoxNzY3ODc4NzgxLCJpYXQiOjE3Njc4NzY5ODEsInJvbGUiOiJzdGFmZiIsInN1YiI6MiwidXNlcm5hbWUiOiJ0ZXN0MSJ9.gGJbULPq3yp9CTmLlQvkmnJFarfEcFn2tJJvqdlJgio",
+  "refresh_token": "4mcgL_-HYEvrTxKATA_B2_NFCVsLSi_1yjxGiV-3HNk=",
+  "token_type": "Bearer",
+  "expires_in": 1800,
+  "expires_at": "2026-01-08T13:26:21.976115342Z",
+  "user": {
+    "id": 2,
+    "username": "test1",
+    "email": "test1@example.com",
+    "role": "staff"
+  }
+}
+  "exp": 1767878781,
+
+expired.. tại sao token hết hạn 
+client (FE) sẽ âm thầm sử dụng refreshToken để xin server cấp lại 1 access token mới mà user ko hề biết
+a-string-secret-at-least-256-bits-long <- ví dụ secretkey 
+
+trong cụm header
+Authorization Bearer <token>
+
+
+Path param và query param
+
+
+Path Parameter (tham số dường dẫn)
+vị trí nằm trong enpoint (URL) sau dấu /
+vai trò: định danh (indentifier)
+
+viis dụ mình lướt sốp pe có rất nhiều sản phẩm 
+nhưng mà tôi muốn xem nội dung của snar phẩm có id là 12345
+=> sẽ dùng path parameter 
+URL: soppe/products/12345
+method GET
+
+query param (tham số truy vấn)
+
+nằm sau dấu ? và nối với nhau bằng dấu và &
+vai trò: bộ lọc/ sắp xếp (filter/sort).nó ko làm thay đổi tài nguyên chỉ thay đổi cách hiển thị
+
+/vào soppet và mình muốn tìm cái áo thun có màu đỏ
+
+URL' soppe/products/search?keyword=ao-thun&color=red
+
+
+phân trang (pagination)
+
+phân trang sẽ thường dùng 2 tham số chính thuộc query param
+1/ page: chỉ cho ta biết là trang số mấy (ví du 1 2 3) page = 1
+2/ limit (size, per_Page): lấy bao nhiêu bản ghi mỗi trang
+
+
+//????offset (vị trí bắt đầu)
+Trang 1: offset=0, litmit = 10
+Trang 2: offset=10, limit = 10
+
+
+///kb: kiểm tra số lượng limit
+
+input page 1, limit 5; => expect api trả về đúng 5 item
+. kiểm tra logic chuyển trang 
+ví dụ: gọi page 1 lấy 5 item dầu -> sau đó gọi page 2.
+expect dữ liệu ở page 2 phải khác page 1 (tránh lỗi gọi trang 2 mà vẫn trả về dữ liệu trang 1)
+
+
+quét toàn bộ bản ghi tìm sản phẩm a nằm ở trang nào trong 10 trang
+
+multipart/form-data
+
+ví dụ.
+JSON: application/json: giống như viết 1 bưc thư tay mọi thứ phải là kí tự (text)
+Form data: (multipart/form-data): giống như mình nói với server là tôi sẽ gửi cho ông 1 container hàng hóa
+bên trong có thể text, ảnh , file
+ekyc 
+bản chất khi mình ekyc -> máy ảnh sẽ chụp n cái ảnh. 8 cái ảnh
+-> nó sẽ gọi 1 API form-data -> gửi 8 cái ảnh + video liveness
+ -> sang 1 con service xử lý xác thực  -> trả lại res cho FE (app)
+-> app trả kết quả cho người dùng
+steam dòng chảy
+
+dữ liệu file chảy vào đến đầu -> server ghi dữ liệu đến đấy
+
+
+
+header
+<form method= 'POST'>
+body username=admin&password=password&123
+& => %26 => password%26123
+body: json {
+"username": "admin",
+"password" : "password@123"
+}
+
+body: {
+
+  username: "Nguyễn Văn A",
+}
+kí tự NON-ASCII
+
+ê -> UTF-8 byte => %E1%BB%85
+
+
+hệ thống URL gốc chỉ chấp nhận bảng mã ASCII (các kí tự a-z, 0-9)
+oauth2 authentication (đăng nhập web mà thông qua google, facebook, zép lào....)
+header => application/x-www-form-urlencode
+PK 
+
+để có 1 clean pattern API framework
+chúng ta phải chia nhỏ các module thành những phần reuse cho các mục đích khác nhau
+
+sẽ chia các api thuộc 1 nhóm thành 1 service ()
+
+mô hình nguyên khối tât cả các module tập hợp thành 1 khối to (ví dụ payment, noti, ekyc)
+
+mô hình microservices => chia nhỏ các modile thành các service khác nhau. mỗi service sẽ quản lý 1 công việc của riêngnos
+các khối liên kết bởi cầu nối API (restful api, grpc, graphql), mô hình pub/sub (rabbit mq, kafka...., event message)
+
+mình sẽ caafn 1 thằng chung chia sẻ tất cả các method, mà các thành phần con có thể sử dụng
+
+ví dụ như service Product chỉ quan tâm tới việc, get thông tin sản phẩm,tạo sản phẩm, upoad ảnh sản phẩm.. mà nó ko cần biết 
+gì về việc call api như nào,.... 
+
+baseService
+
+
+ "data": [
+    {
+      "id": 30,
+      "name": "AeroPress Original + Travel Kit",
+      "type": "equipment",
+      "unit_type": "piece",
+      "description": "Bộ pha cà phê AeroPress Original kèm túi du lịch. Compact và versatile.",
+      "price_per_unit": 950000,
+      "warranty_months": 12,
+      "specifications": {
+        "brand": "AeroPress",
+        "model": "Original",
+        "brewing_methods": [
+          "Standard",
+          "Inverted",
+          "Cold brew"
+        ],
+        "capacity": "1-3 cups",
+        "brewing_time": "1-2 phút",
+        "filter_type": "Micro paper filters",
+        "origin": "USA",
+        "features": [
+          "BPA-free plastic",
+          "Portable",
+          "Easy cleanup",
+          "350+ included filters"
+        ],
+        "includes": [
+          "AeroPress",
+          "Paddle",
+          "Scoop",
+          "Funnel",
+          "Filter holder",
+          "350 filters",
+          "Tote bag"
+        ],
+        "color_options": [
+          "Gray/Black"
+        ]
+      },
+      "is_active": true,
+      "created_at": "2026-01-07T17:45:05Z",
+      "updated_at": "2026-01-07T17:45:05Z"
+    },
+
+
+
+    để thực hiện lưu token cho các bài test đối với API
+    chúng ta cần lưu trực tiếp vào file với phần trích xuất jwt - token
+    và sẽ xử lý đọc file đó để lấy token
+
+
+    Thì 
+    GET -> lấy dữ liệu
+    POST -> tạo mới dữ liệu
+    PUT/PATCH: bản chất là thay đổi thông tin của đối tượng đã có trong db
+    PUT: -> sẽ thay đổi toàn bộ thông tin của sản phẩm và yêu cầu phải đầy đủ body truyền lên
+    Nếu truyền thiếu thì trường đó mặc định sẽ trửo về null -> hoặc về default tùy nghiệp vụ
+    có nhưunxg trường required bắt buộc phải đẩy lên -> ví dụ nhưu tên sản phẩm 
+    PATCH: -> se thay đổi thông tin của sản phẩm theo body truyền lên mà ko ảnh hưởng tới các thông tin khác 
+    nghĩa là ta muón thay đổi gì thì ta truyền lên
+
+
+  intercept là gì
+  gọi API từ FE -> BE 
+REAL API -> BE 
+intercept -> gọi nhân viên (playwright) chặn ngay từ bàn.
+ rút ra cái món ăn có hình thức gần giốgn hoặc giống hệt cái thật . MÀ BE ko hề biết gì về việc này
+trả lại cho người dùng cái response giả mà mình yêu cầu
+mock: giả lập response trả ra từ BE cho thằng FE
+
+- Speed: Tốc độ ; ko chờ server xử lý . ko chờ mạng. Response trả về tức thì.
+- Dữ liệu sạch: ko tạo data rác trong database 
+- kiểm thử kịch bản khó (edge case): giả lập đc những thứ server rất khó làm như server sập (500),
+mạng lag, lỗi dữ liệu (409)
+hệ thống core: giống như trading, bank => sẽ là hệ thống trung tâm cung cấp tất cả yêu cầu 
+cho các hệ thống vệ tinh
+ví dụ tôi là hệ thống thẻ (credit) => tôi cần thông tin KH từ core 
+- ổn định: bởi vì chúng ta giả lập res -> loại bỏ yếu tố do mạng lag hay server bảo trì
+
+-> thì đeer thực ghiện intercept trong playwright sử dụng
+
+await page.route('duong dan api muon chan', async(route)=>{
+  logic xy ly o day
+})
+
+thằng PW có 1 feature rất hay 
+đc gọi là waitForResponse() - những tác vụ chạy nền như là download, upload, auto save
+
+word văn bản (sau 10s chẳng hạn word sẽ tự động save) -> có 1 số web có chức năng auto save (ở dưới nền - k có UI để tương tác)
+thì làm sao chúng ta dùng UI mà xử lý????? -> API -> FE sẽ gọi api save xuống BE -> wait for response autosave gọi API thành công ->
+
+
+trước 1 hành động chúng ta phải ném 1 cái bẫy (hay goiuj là event() => event liên quan tới việc kiểm soát cái action đấy)
+
+
+1 tab = 1 page
+
+1 browser = 1 context
+
+-> multi tab => multi page 
+
+popup windows = 1 tab = 1 page
+
+Mục tiêu: là xây dựng đc 1 danh sách các tab, popup window -> chúng ta có thể di chuyển hoặc switch dễ dàng
+
+
+có 1 action -> chúng ta phải đặt event trước action
+thì tab với windows tương tự
+page.waitforEvent('popup') -> popup windows
+page.waitforEvent('page') -> tab
+
+KHi test permission , multi role. -> người ta cũng sẽ defined ra rất nhiều role và rất nhiều permission
+
+làm ma trận phân quyền
+    staff manager admin
+C    Y 
+R    N
+U    N
+D    Y
+
+authen và author
+
+SELECT * FROM PRODUCT ORDER BY ID DESC LIMIT 10
+
+
+/// Với UI
+Browser sự tự động capture : storageStage *Trạng thái đăng nhập khi mình khai báo ở dependencies project
+
+
+1. User điền form -> click login
+->
+2. Browser sẽ gửi request xxuoosng server
+->
+3. Server sẽ trả về:
+  - Set-Cookie: session=abbc123, httOnly --> cookie
+  - Respont-body: {access_token: "abc"}
+
+
+
+
+// db
+//nhiều cách để call db (rất nhiều thư viện hỗ trợ -> mình sẽ viết thành viết base sql (khởi tạo connection, quản lý config, pool, room...)
+-> call xuống tầng repo), transaction, commit, rollback... -> fixture hết 
+thì sẽ chia thành tầng model  (bảng, cột) ORM mapping từ database thành các class của typescript
+tầng repository -> mình sẽ khai báo các câu query với db (slect, update, insert, delete.... kết nối với thằng model)
+tầng service -> bao gồm các business logic (ví dụ lấy toàn bộ thông tin học sinh theo lớp, khối....... sẽ gọi reposuitory)
+tầng controller (bao gồm endpoint api và kết nối -> service )
+
+-> fixture kết nối hết tất cả service -> dùng gọi DI (inject tất cả service -> fixture)
+-< bài test gọi fixture bình thường thay vì gọi services...
+
+
+API : clean
+UI : clean 
+=> API + UI  = clean
+
+
+-> middle: 
+
+
+/rule
+/skill
+
+muốn kết hợp AI + project -> xây dựng đc cái móng của project và phải hiểu được project 
+-> sau đó mới chỉ lại rule , skill cho AI để nó tuân theo
+
+CI/CD
+CI: Continuos Integration (Tích hợp liên tục)
+- đợi tí đang deploy đang build...... 
+- sẽ dẫn tới xung đột (conflict) -> dưới phần code ở môi trường dev (nghĩa là dev sẽ fix conflict ở máy của họ)
+- Vai trò của automation là gì???
++ là chốt chặn đầu tiên
++ mỗi khi dev tạo pull request (PR).  -> automation sẽ chạy 
+-> rõ ràng là mình ko thể ngôi ở máy local đợi thằng dev nó báo là tạo PR -> đẻ run test npx playwright test....
+-=> tự động chạy code automation khi mà bên dev thực hiện PR -> quy trình này cũng giống như bên dev là automation cũng có
+1 quy trình CI riêng
+
+CD: Continuos Delivery (Triển khai liên tục)
+thực ra là việc deploy lên server run app ví dụ nhưu k8s, hoặc docker, hoặc cloud (như là aws, azure, google cloud)
+đống vai trò trong việc ví dụ là build report -> hoặc là chạy code regresstion test sau khi lên môi trường mới 
+
+tạo thư mục root (cùng cấp với package.json)
+.github
+workflows
+
+
+để làm cho github chạy ci -> chúng ta phải viết 1 file chỉ dẫn cho nó 
+đầu ra alf chỉ cho thằng github biết cách chạy được projecrt với cú pháp npx playwright test.....
+file chỉ dẫn sẽ có tên đuôi (ext) là .yml
+
+chúng ta sẽ cần 1 cái máy để chạy code 
+ví dụ như máy windows, macos. ubuntu
+thằng github cung cần 1 cái máy để chạy
+0-> chỉ dẫn hay nói cho github là mượn 1 cái máy tính có hệ đề hành...
+để chạy code
+
+giá cả: liên quan tới việc khởi tạo hệ điều hành 
+-> cài windows. macos mất rât nhiều thời gian )có thể tới hàng h đồng hồ,
+-> thời hạn limit: 2000 phút free 
+-> giải quyết alf dùng ubuntu 
+minh sẽ đưa ra các chỉ dẫn qua câu lệnh command line cho thằng ubuntu chạy
+run là tổ hợp câu lệnh mà thằng github sẽ chạy trên ubutnu
+để in chữ ở trong giao diện ubuntu chúng ta sẽ dùng echo
+
+chạy được nhiều workflows -> các workflows có thể gọi tới nhau
+
+quy trình PRO(hay sử dụng): người ta hay dùng reportportal  (real time kết quả)
+
+biến môi trường
+
+khi mình muốn in 1 biến ở trong github yml file thiof có 2 cách
+
+1. ${{}} -> tìm và thay thế trước khi chạy () 
+-> dùng để lấy dữ liệu từ github (dữ liệu tĩnh ví dụ secret, inputs, tên nhánh, tên người chạy )
+
+dữ liệu tĩnh bao gồm.
+
+github *thông tin về workflow/repo
+job. trạng thái Job
+step. ouput từ step 
+secrets. -> github secret
+vars -> github variable
+runner
+
+
+2. $() 0> chạy lệnh và lấy kết quả sử dụng ở unbuntu *hay linux bash shell
+
+// khi chạy test chúng ta sẽ quản lý theo môi trường dev hoặc uat 
+-> sẽ có secrect, vars phụ thuộc vào môi trường dev hay uat
+thì mình sẽ tạo enviroment trên github và bảo github quản lý môi trường cho chúng ta
+
+secret -> khai báo 1 lần đầu tiên duy nhất và sẽ không hiển thị lại lần sau khi update
+kkhi in ra màn hình nó sẽ tự động đc mask ********
+
+vars -> khai báo sửa thoải mái (public)
+
+khi lấy ra NGUYÊN TẮC là phải gán ngược lại vào 1 cái biến để truy cập
+
+ko có GUI *giao diện tương tác
+phải sửa headless: true
+
+
+SEO TOP 
+nghĩa là đẩy keyword liên quan tới trang web lên đầu search của google...
+
+
+
+//loc trang thai
+select.first()
+
+select.nth(1)
+
+///
+page.locator('div').filer({hasText: 'Lọc trạng thái'}).locator('select')
+
+page.getByText('Lọc trạng thái).locator('xpath=following-sibling::select')
+
+FE sẽ render ra 1 cái skeleton 
+
+Bản chất cloudflare, google recaptcha -> sẽ là FE hiển thị challenge ... (câu đố) -> bên thứ 3 là cloudflare, hoặc google sẽ đánh giá xem bạn có là người thật hay ko
+-> pass -> goi xuống BE . Be -> gọi server của cloudflare, hoặc google để check xem là cái hành vi nà có đc phép là con người hay ko =>
+nó sẽ cho phép người dùng dăng nhập 
+
+những cách bypass
+=> luôn sử dụng site key hay secret key LUÔN PASS ->  nhờ dev (auto test ko can thiệp đc)'
+=> tắt 
+=> là mình sẽ đăng nhập bằng người dùng thật (thao tác manual) => copy state -> tạo thành file json. giốn với luồng storageState =>
+
+Chúng ta sẽ dùng 1 cái trick
+nghĩa là ta sẽ khởi đọng browser qua CDP (và sử dụng playwright kết nối với trình duyệt qua CDP debugger)

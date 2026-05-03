@@ -1,0 +1,54 @@
+name: Demo CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Chọn môi trường'
+        type: choice
+        options: [dev, uat]
+        default: 'dev'
+      config:
+        description: 'Chọn config file'
+        type: choice
+        options:
+          - playwright.lessons.config.ts
+          - playwright.config.ts
+        default: 'playwright.lessons.config.ts'
+  schedule:
+    - cron: '0 9 * * *'
+
+jobs:
+  test:
+    name: Job 1 - Chạy test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+      - name: Step 1 - Check out code
+        uses: actions/checkout@v4
+
+      - name: Step 2 - Cài node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Step 3 - Cài dependencies từ package.json
+        run: npm install
+
+      - name: Step 4 - Cài playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Step 5 - Run test
+        run: npx playwright test --config=${{inputs.config}} --project=neko-combined tests/lessons/specs/api-ui-combo.spec.ts
+        env:
+          BASE_URL: ${{vars.BASE_URL}}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
